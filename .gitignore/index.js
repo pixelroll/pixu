@@ -4,7 +4,29 @@ const client = new Discord.Client();
 
 var prefix = "*";
 
+const ytdl = require('ytdl-core');
+
+const queue = new Map();
+
+var servers = {};
+
 client.login(process.env.TOKEN);
+
+function play(connection, message) {
+  
+  var server = servers[message.guild.id];
+
+  server.dispatcher = connection.playStream(ytdl(server.queue[0], {filter: "audioonly"}));
+
+  server.queue.shift();
+
+  server.dispatcher.on("end", function() { 
+    if (server.queue[0]) play(connection, message);
+
+    else connection.disconnect();
+
+  });
+}
 
 client.on("ready", () => {
 
@@ -15,32 +37,50 @@ client.on("ready", () => {
 
 client.on('message', async message => { 
 
-    if(message.content === "*bonjour"){
+    if(message.content === "Bonjour"){
         message.reply("Salut");
-        console.log('Le bot dit Salut');
+        console.log('Le bot dit bonjour');
     }
 
-    if(message.content === prefix + "aide") {
-        var help_embed = new Discord.RichEmbed()
-        .setColor('#40A497')
-        .setTitle("Voici mes commandes d'aides :D")
-        .setDescription("Je suis le bot Pixu :D Voici mes commandes disponible !")
-        .addField("*bonjour", "Le bot répond")
-        .addField("*aide", "Affiche les commandes du bot")
-        .addField("*info", "Le bot donne des infos sur lui et le serveur")
-        .addField("*stats", "Pour voir ses stats")
-        .addField("*8ball + une question", "Le bot répond")
-        .addField("*clear + un nombre", "Le bot supprime le nombre de message")
-        .addField("*ban + une mention", "Le bot ban l'utilisateur")
-        .addField("*kick + une mention", "Le bot kick l'utilisateur")
-        .addField("*mute + une mention", "l'utilisateur ne peux plus écrire dans le salon")
-        .addField("*unmute", "Enléve les conséquences de la commande mute")
-        .addField("*warn", "Rajoute un warn a l'utilisateur")
-        .addField("*deletewarns", "Supprime un warn choisi a l'utilisateur")
-        .addField("*seewarns", "Montre les warns de l'utilisateur")
-        .setFooter("Menu d'aide -  Pixu by Pixelroll")
-        message.channel.send(help_embed);
-        console.log("Un utilisateur a effectué la commande d'aide");
+    if(message.content === prefix + "help") {
+      var aide_embed = new Discord.RichEmbed()
+      .setColor('RANDOM')
+      .setTitle(`:robot: Voici mes catégories d'aide !`)
+      .setDescription(`Voici mes commandes disponible :`)
+      .setThumbnail(message.author.avatarURL)
+      .addField(":tools: Modération", "Fais `*mod` pour voir mes commandes de modération !")
+      .addField(":tada: Fun", "Fais `*fun` pour voir mes commandes d'animation !")
+      .setFooter("Menu d'aide -  Pixu by Pixelroll")
+      .setTimestamp()
+      message.channel.send(aide_embed);
+    }
+
+    if(message.content === prefix + "mod") {
+      var mod_embed = new Discord.RichEmbed()
+      .setColor('RANDOM')
+      .setTitle(`:tools: Voici mes commandes modérations !`)
+      .setThumbnail(message.author.avatarURL)
+      .addField("*kick <@user>", "Kick l'utilisateur !")
+      .addField("*ban <@user>", "Ban l'utilisateur !")
+      .addField("*clear nombre", "Supprime le nombre de messages indiqué")
+      .addField("*mute <@user>", "Mute l'utilisateur mentionné")
+      .addField("*unmute <@user>", "Unmute l'utilisateur mentionné")
+      .setFooter("Commande modération - Pixu")
+      .setTimestamp()
+      message.channel.send(mod_embed);
+    }
+
+    if(message.content === prefix + "fun") {
+      var fun_embed = new Discord.RichEmbed()
+      .setColor('RANDOM')
+      .setTitle(`:tools: Voici mes commandes amusantes !`)
+      .setThumbnail(message.author.avatarURL)
+      .addField("Bonjour", "Le bot répond !")
+      .addField("*stats", "Le bot vous envoie des informations sur votre profil !")
+      .addField("*info", "Donne des indormations sur le bot et le serveur !")
+      .setFooter("Commande modération - Pixu")
+      .setTimestamp()
+      message.channel.send(fun_embed);
     }
 
     if (!message.content.startsWith(prefix)) return;
@@ -65,7 +105,72 @@ client.on('message', async message => {
 
         break;
         
-    }
+  case "play":
+
+    if (!args[1]) {
+
+    message.channel.sendMessage("Tu dois m’indiquer un lien YouTube"); 
+
+    return;
+
+  }
+
+    if(!message.member.voiceChannel) {
+
+    message.channel.sendMessage(":x: Tu dois être dans un salon vocal"); 
+
+    return;
+
+  }
+
+
+    if(!servers[message.guild.id]) servers[message.guild.id] = {
+
+    queue: []
+
+  };
+
+
+  var server = servers[message.guild.id];
+
+
+  server.queue.push(args[1]);
+
+  if(!message.guild.voiceConnection) message.member.voiceChannel.join().then(function(connection) {
+
+  play(connection, message) 
+
+  });
+
+  break; 
+
+  case "skip":
+
+    if(!message.member.voiceChannel) {
+
+    message.channel.sendMessage(":x: Tu dois être dans un salon vocal"); 
+
+    return;
+
+  }
+
+    var server = servers[message.guild.id];
+
+    if(server.dispatcher) server.dispatcher.end();
+
+    break;
+
+  case "stop":
+
+    if(!message.member.voiceChannel) 
+    
+    return message.channel.send(":x: Tu dois être dans un salon vocal");
+
+    message.member.voiceChannel.leave();
+
+    break;
+  
+  }
 
     if(message.content === prefix + "info") {
         var info_embed = new Discord.RichEmbed()
@@ -76,7 +181,7 @@ client.on('message', async message => {
         .addField("ID :id: ", `${client.user.id}`)
         .addField("Nombre de membres", message.guild.members.size)
         .addField("Nombre de catégories et de salons", message.guild.channels.size)
-        .setFooter("Info - Pixu by Pixelroll")
+        .setFooter("Info - Pixu")
         message.channel.sendMessage(info_embed)
         console.log("Un utilisateur a effectué la commande d'info !")
     }
