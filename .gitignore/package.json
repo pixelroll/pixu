@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "discord.js": "^11.3.2"
+    "discord.js": "^11.3.2",
+    "opusscript": "file:node_modules/opusscript",
+    "ytdl-core": "file:node_modules/ytdl-core"
   },
   "devDependencies": {},
   "scripts": {
